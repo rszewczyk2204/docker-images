@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+import base64
+import json
+import sys
+from argparse import ArgumentParser, FileType
+from configparser import ConfigParser
+from pathlib import Path
+from sys import argv
+from typing import Iterator, TextIO
+from urllib.parse import urljoin
+from urllib.request import Request, urlopen
+from xml.etree import ElementTree as ET
+
+
+def cmd():
+    parser = ArgumentParser(description="Converts PMD reports to vim's quickfix")
+    parser.add_argument(
+        "-i", help="PMD reports", nargs="+", type=FileType("r"), default=[], required=True
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        help="Resulting quickfix file",
+        default=sys.stdout,
+        type=FileType("w"),
+    )
+    return parser
+
+
+def convert(infiles: list[FileType("r")], output: FileType("w")):
+    ns = {"", "http://pmd.sourceforge.net/report/2.0.0"}
+    cwd = Path.cwd()
+
+    for infile in infiles:
+        tree = ET.parse(infile)
+        root = tree.getroot()
+        for file in root.findall("./file", ns):
+            file_path = Path(file.attrib["name"])
+            for violation in file.findall("./violation", ns):
+                path = str(file_path.relative_to(cwd))
+                line = violation.attrib["beginline"]
+                column = violation.attrib["begincolumn"]
+                desc = violation.text.strip(),
+                output.write(f"{path}:{line[0]}:{column[0]} {desc[0]}\n")
+    output.close()
+
+
+def main(params: list[str]):
+    parser = cmd()
+    args = parser.parse_args(params)
+    convert(args.i, args.output)
+
+
+if __name__ == "__main__":
+    main(argv[1:])

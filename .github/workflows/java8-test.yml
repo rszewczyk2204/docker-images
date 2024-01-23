@@ -1,0 +1,25 @@
+name: Java8 Test
+
+on:
+  pull_request:
+    paths:
+      - 'java8/**'
+      - 'Makefile'
+      - '.github/workflows/java8*'
+
+jobs:
+  test_build_java8:
+    runs-on: ubuntu-latest
+    container:
+      image: bananawhite98/ubuntu:1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Test Java8
+        run: |
+          cd java8
+          make -C ../. build-java8 VERSION=test DIR=java8
+      - name: Cleanup
+        run: |
+          cd java8
+          make -C ../. rmi-java8 VERSION=test

@@ -1,0 +1,2 @@
+#!/usr/bin/env sh
+java -jar /opt/google-java-format.jar --skip-reflowing-long-strings "$@"

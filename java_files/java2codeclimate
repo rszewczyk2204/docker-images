@@ -1,0 +1,370 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+import base64
+import json
+import logging
+import sys
+from argparse import ArgumentParser, BooleanOptionalAction, FileType
+from configparser import ConfigParser
+from pathlib import Path
+from sys import argv
+from typing import Iterable, TextIO
+from urllib.parse import urljoin
+from urllib.request import Request, urlopen
+from xml.etree import ElementTree as ET
+from os.path import relpath
+
+
+def logger(debug: bool):
+    log = logging.getLogger(__file__)
+    if debug:
+        log.setLevel(logging.DEBUG)
+    else:
+        log.setLevel(logging.INFO)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    log.addHandler(ch)
+    return log
+
+
+def cmd():
+    parser = ArgumentParser(
+        description='Converts PMD and SpotBugs report into subset of GitLab-supported CodeClimate report'
+    )
+    parser.add_argument(
+        '--pmd', help='PMD reports', nargs='*', type=FileType('r'), default=[]
+    )
+    parser.add_argument(
+        '--spotbugs', help='SpotBugs reports', nargs='*', type=FileType('r'), default=[]
+    )
+    parser.add_argument(
+        '--ktlint', help='Ktlint reports', nargs='*', type=FileType('r'), default=[]
+    )
+    parser.add_argument(
+        '--sarif', help='SARIF reports', nargs='*', type=FileType('r'), default=[]
+    )
+    parser.add_argument('--sonar-token', help='SonarQube API token')
+    parser.add_argument(
+        '--debug', action=BooleanOptionalAction, help='Włącza dodatkowe logowanie'
+    )
+    parser.add_argument(
+        '--quickfix-file',
+        help='Resulting report in quickfix format',
+        type=FileType('w'),
+    )
+    parser.add_argument(
+        '-o',
+        '--output',
+        help='Resulting CodeClimate report',
+        required=True,
+        type=FileType('w'),
+    )
+    return parser
+
+
+def convert_sonar(token: str) -> Iterable[dict]:
+    parser = ConfigParser()
+    with open('target/sonar/report-task.txt', 'r', encoding='utf8') as fp:
+        parser.read_string('[sonar]\n' + fp.read())
+
+    project_key = parser.get('sonar', 'projectKey')
+    server_url = parser.get('sonar', 'serverUrl')
+
+    credentials = base64.b64encode((token + ':').encode('ascii'))
+    page = 1
+    while 1:
+        request_url = urljoin(
+            server_url,
+            f'/api/issues/search?componentKeys={project_key}&p={page}&ps=500&resolved=no',
+        )
+        page += 1
+        req = Request(request_url)
+        req.add_header('Authorization', f'Basic {credentials.decode("ascii")}')
+        with urlopen(req) as resp:
+            data = json.load(resp)
+
+        for issue in data['issues']:
+            path = issue['component'].rpartition(':')[2]
+            try:
+                text_range = issue['textRange']
+            except KeyError:
+                continue
+            yield {
+                'description': issue['message'],
+                'fingerprint': issue['rule'],
+                'severity': sonar_rank(issue['severity']),
+                'location': {
+                    'path': path,
+                    'positions': {
+                        'begin': {
+                            'line': text_range['startLine'],
+                            'column': text_range['startOffset'],
+                        },
+                        'end': {
+                            'line': text_range['endLine'],
+                            'column': text_range['endOffset'],
+                        },
+                    },
+                },
+            }
+
+        paging = data['paging']
+        if paging['pageIndex'] * paging['pageSize'] >= paging['total']:
+            break
+
+
+def sb_src_dirs(root: ET.Element) -> set[str]:
+    project = root.find('./Project')
+    cwd = Path.cwd()
+    src_dirs = set()
+    for src_dir in project.findall('./SrcDir'):
+        absolute_path = src_dir.text
+        if (
+            '/target/' in absolute_path
+            or '/build/' in absolute_path
+            or absolute_path.endswith('resources')
+        ):
+            continue
+        relative_path = relpath(absolute_path, cwd)
+        src_dirs.add(relative_path)
+    return src_dirs
+
+
+def sb_filename_from_sourceline(
+    bug: ET.Element, source_line: ET.Element, src_dirs: set[str]
+) -> Path:
+    source_path = source_line.attrib['sourcepath']
+    for src_dir in src_dirs:
+        path = Path(src_dir, source_path)
+        if path.is_file():
+            return path
+
+    bug_node = ET.tostring(bug).decode('utf8')
+    raise ValueError(f'Nie udało się wyliczyć ścieżki dla {bug_node}')
+
+
+def convert_sb(infiles: list[TextIO], log: logging.Logger) -> list:
+    report = []
+    for infile in infiles:
+        log.debug('Przetwarzanie %s', infile.name)
+        root = ET.parse(infile).getroot()
+        src_dirs = sb_src_dirs(root)
+
+        for bug in root.findall('.//BugInstance'):
+            log.debug('Przetwarzanie błędu %s', ET.tostring(bug).decode('utf8'))
+            source_line = find_source_line(bug)
+            if source_line is None:
+                raise ValueError(f'Nie odnaleziono źródeł dla bajtokodu w błędzie {bug.attrib["instanceHash"]}. Prawdopodobnie jest to błąd w wygenerowanym bajtokodzie, który powinien zostać wykluczony z analizy.')
+            path = sb_filename_from_sourceline(bug, source_line, src_dirs)
+            entry = {
+                'description': (
+                    bug.find('./LongMessage') or bug.find('./ShortMessage')
+                ).text,
+                'fingerprint': bug.attrib['type'],
+                'severity': severity_from_num(int(bug.attrib['rank'])),
+                'location': {
+                    'path': str(path),
+                },
+            }
+
+            if source_line:
+                if l_num := source_line.attrib.get('start'):
+                    entry['location']['lines'] = {'begin': int(l_num)}
+
+                    if l_num := source_line.attrib.get('end'):
+                        entry['location']['lines']['end'] = int(l_num)
+
+            report.append(entry)
+
+    return report
+
+
+def convert_ktlint(infiles: list[TextIO]) -> list:
+    report = []
+    cwd = Path.cwd()
+    for infile in infiles:
+        for filereport in json.load(infile):
+            absolute_path = Path(filereport['file'])
+            relative_path = absolute_path.relative_to(cwd)
+            for error in filereport['errors']:
+                entry = {
+                    'description': error['message'],
+                    'fingerprint': error['rule'],
+                    'severity': 'major',  # TODO rule mapping to severity
+                    'location': {
+                        'path': str(relative_path),
+                        'positions': {
+                            'begin': {'line': error['line'], 'column': error['column']},
+                        },
+                    },
+                }
+            report.append(entry)
+
+    return report
+
+
+def convert_sarif(infiles: list[TextIO]) -> list:
+    """
+    Opis formatu znajduje się pod adresem
+    https://docs.oasis-open.org/sarif/sarif/v2.0/sarif-v2.0.html.
+    """
+    report = []
+
+    cwd = Path.cwd()
+    for infile in infiles:
+        sub_dir = ''
+        if infile.name.endswith('qodana/qodana.sarif.json'):
+            project_dir = infile.name.removesuffix('qodana/qodana.sarif.json')
+            if (cwd / project_dir).exists():
+                sub_dir = project_dir
+        for run in json.load(infile)['runs']:
+            for error in run['results']:
+                location = sarif_location(error['locations'])
+                relative_path = sub_dir + location['artifactLocation']['uri']
+                region = location['region']
+                entry = {
+                    'description': error['message']['text'],
+                    'fingerprint': error['ruleId'],
+                    'severity': severity_from_sarif(error['level']),
+                    'location': {
+                        'path': relative_path,
+                        'positions': {
+                            'begin': {
+                                'line': region['startLine'],
+                                'column': region['startColumn'],
+                            },
+                        },
+                    },
+                }
+                report.append(entry)
+
+    return report
+
+
+def sarif_location(locations: list[dict]) -> dict:
+    for location in locations:
+        if p_location := location['physicalLocation']:
+            return p_location
+    raise ValueError(
+        f'Nie odnaleziono fizycznego położenia pliku z błędem w {locations}'
+    )
+
+
+def severity_from_sarif(severity: str) -> str:
+    if severity == 'warning':
+        return 'critical'
+    if severity == 'error':
+        return 'blocker'
+    if severity == 'note':
+        return 'info'
+    if severity == 'none':
+        return 'major'
+    raise ValueError(f'Nieznany poziom ważności wykrycia z SARIF: {severity}')
+
+
+def find_source_line(bug) -> ET.Element | None:
+    for tag in ('', 'Method/', 'Field/', 'Class/'):
+        source_line = bug.find('./' + tag + 'SourceLine')
+        if not source_line:
+            continue
+        if 'start' not in source_line.attrib:
+            continue
+        return source_line
+    return None
+
+
+def convert_pmd(infiles: list[TextIO]) -> list:
+    ns = {'': 'http://pmd.sourceforge.net/report/2.0.0'}
+    report = []
+    cwd = Path.cwd()
+
+    for infile in infiles:
+        tree = ET.parse(infile)
+        root = tree.getroot()
+        for file in root.findall('./file', ns):
+            file_path = Path(file.attrib['name'])
+            for violation in file.findall('./violation', ns):
+                entry = {
+                    'description': violation.text.strip(),
+                    'fingerprint': violation.attrib['rule'],
+                    'severity': severity_from_num(int(violation.attrib['priority'])),
+                    'location': {
+                        'path': str(file_path.relative_to(cwd)),
+                        'positions': {
+                            'begin': {
+                                'line': int(violation.attrib['beginline']),
+                                'column': int(violation.attrib['begincolumn']),
+                            },
+                            'end': {
+                                'line': int(violation.attrib['endline']),
+                                'column': int(violation.attrib['endcolumn']),
+                            },
+                        },
+                    },
+                }
+
+                report.append(entry)
+    return report
+
+
+def severity_from_num(rank: int) -> str:
+    if rank <= 2:
+        return 'info'
+    if rank <= 4:
+        return 'minor'
+    if rank <= 6:
+        return 'major'
+    if rank <= 8:
+        return 'critical'
+    return 'blocker'
+
+
+def sonar_rank(severity: str) -> str:
+    return severity.lower()
+
+
+def convert_to_quickfix(codeclimate: list[dict]) -> Iterable[str]:
+    for error in codeclimate:
+        desc = error['description']
+        fingerprint = error['fingerprint']
+        location = error['location']
+        path = location['path']
+        numbers = ''
+
+        if positions := location.get('positions'):
+            begin = positions['begin']
+            line = begin['line']
+            column = begin['column']
+            numbers = f':{line}:{column}'
+        elif lines := location.get('lines'):
+            numbers = f":{lines['begin']}"
+        yield f'{path}{numbers} {fingerprint} {desc}'
+
+
+def main(params: list[str]):
+    parser = cmd()
+    args = parser.parse_args(params)
+    log = logger(args.debug)
+    pmd_report = convert_pmd(args.pmd)
+    sb_report = convert_sb(args.spotbugs, log)
+    ktlint_report = convert_ktlint(args.ktlint)
+    sarif_report = convert_sarif(args.sarif)
+    sonar_report: Iterable[dict] = []
+    if args.sonar_token:
+        sonar_report = convert_sonar(args.sonar_token)
+
+    report = pmd_report + sb_report + ktlint_report + list(sonar_report) + sarif_report
+
+    if (quickfix_file := args.quickfix_file) and report:
+        for line in convert_to_quickfix(report):
+            quickfix_file.write(line)
+            quickfix_file.write('\n')
+
+    json.dump(report, args.output)
+
+    if report:
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main(argv[1:])
