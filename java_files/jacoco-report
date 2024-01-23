@@ -1,0 +1,237 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+import xml.etree.ElementTree as ET
+import shutil
+import sys
+from argparse import ArgumentParser, Namespace
+from collections import defaultdict
+import json
+
+COV_METRICS = ['branch', 'class', 'complexity', 'instruction', 'line', 'method']
+METRICS_TRANS = {
+    'branch': 'Rozgałęzienia',
+    'class': 'Klasy',
+    'complexity': 'Złożoność cyklomatyczna',
+    'instruction': 'Instrukcje',
+    'line': 'Linie',
+    'method': 'Metody',
+}
+
+MESSAGES_MIN = {
+    'branch': 'Liczba niepokrytych rozgałęzień {actual} jest większa, niż wymagane minimum {required}.',
+    'class': 'Liczba niepokrytych klas {actual} jest większa, niż wymagane minimum {required}.',
+    'complexity': 'Liczba brakujących testów potrzebnych żeby obsłużyć wszystie ścieżki {actual} jest większa, niż wymagane minimum {required}.',
+    'instruction': 'Liczba niepokrytych instrukcji {actual} jest większa, niż wymagane minimum {required}.',
+    'line': 'Liczba niepokrytych linii {actual} jest większa, niż wymagane minimum {required}.',
+    'method': 'Liczba niepokrytych metod {actual} jest większa, niż wymagane minimum {required}.',
+}
+
+MESSAGES_COV = {
+    'branch': 'Pokrycie rozgałęzień {actual}% jest mniejsze, niż wymagany poziom {required}%.',
+    'class': 'Pokrycie klas {actual}% jest mniejsze, niż wymagany poziom {required}%.',
+    'complexity': 'Pokrycie wszystkich ścieżek wykonania {actual}% jest mniejsze, niż wymagany poziom {required}%.',
+    'instruction': 'Pokrycie istrukcji {actual}% jest mniejsze, niż wymagany poziom {required}%.',
+    'line': 'Pokrycie linii {actual}% jest mniejsze, niż wymagany poziom {required}%.',
+    'method': 'Pokrycie metod {actual}% jest mniejsze, niż wymagany poziom {required}%.',
+}
+
+
+def cli() -> Namespace:
+    parser = ArgumentParser(description='Narzędzia do pracy z raportami jacoco.')
+    subparsers = parser.add_subparsers(
+        title='subcommands', dest='command', required=True
+    )
+
+    merge_parser = subparsers.add_parser(
+        'merge', help='Scala pliki z raportami w formacie jacoco.xml'
+    )
+    merge_parser.add_argument('files', nargs='+', help='Pliki jacoco.xml z raportami')
+    merge_parser.add_argument(
+        '-o', '--out', help='Plik do którego zapisać wynik scalania.'
+    )
+
+    stats_parser = subparsers.add_parser('stats', help='Wypisuje statystyki z raportu')
+    stats_parser.add_argument('file', help='Plik z raportem')
+    stats_parser.add_argument(
+        '--metric',
+        choices=['branch', 'class', 'complexity', 'instruction', 'line', 'method'],
+        required=True,
+        help='Typ metryki.',
+    )
+    stats_parser.add_argument(
+        '--aggregation',
+        choices=['coverage', 'missed'],
+        required=True,
+        help='Typ agregacji.',
+    )
+
+    summary = subparsers.add_parser('summary', help='Wypisuje podsumowanie pokrycia')
+    summary.add_argument('file', help='Plik z raportem')
+    summary.add_argument(
+        '--json', help='Plik do którego zapisać pokrycie w formacie JSON'
+    )
+
+    verify_parser = subparsers.add_parser(
+        'verify',
+        help='Weryfikuje, czy wymagania minimalnego pokrycia zostały spełnione',
+    )
+    verify_parser.add_argument('file', help='Plik z raportem')
+    verify_parser.add_argument(
+        '--branch',
+        help='Weryfikuje pokrycie rozgałęzień. Wartości liczbowa oznacza maksymalną dozwoloną liczbę niepokrytych rozgałęzień, a wartość z %, minimalną procentową dozwoloną wartość pokrycia.',
+    )
+    verify_parser.add_argument(
+        '--class',
+        help='Weryfikuje pokrycie klas. Wartości liczbowa oznacza maksymalną dozwoloną liczbę niepokrytych klas, a wartość z %, minimalną procentową dozwoloną wartość pokrycia.',
+    )
+    verify_parser.add_argument(
+        '--complexity',
+        help='Weryfikuje pokrycie złożoności. Wartości liczbowa oznacza maksymalną dozwoloną liczbę złożoności, a wartość z %, minimalną procentową dozwoloną wartość pokrycia.',
+    )
+    verify_parser.add_argument(
+        '--instruction',
+        help='Weryfikuje pokrycie instrukcji. Wartości liczbowa oznacza maksymalną dozwoloną liczbę niepokrytych instrukcji, a wartość z %, minimalną procentową dozwoloną wartość pokrycia.',
+    )
+    verify_parser.add_argument(
+        '--line',
+        help='Weryfikuje pokrycie linii. Wartości liczbowa oznacza maksymalną dozwoloną liczbę niepokrytych linii, a wartość z %, minimalną procentową dozwoloną wartość pokrycia.',
+    )
+    verify_parser.add_argument(
+        '--method',
+        help='Weryfikuje pokrycie metod. Wartości liczbowa oznacza maksymalną dozwoloną liczbę niepokrytych metod, a wartość z %, minimalną procentową dozwoloną wartość pokrycia.',
+    )
+    return parser.parse_args()
+
+
+def merge(files: list[str], out_file: str):
+    report = ET.Element('report', attrib={'name': 'ci'})
+    ET.SubElement(
+        report,
+        'sessioninfo',
+        attrib={'id': '6dcbfcb5', 'start': '1698326477197', 'end': '1698326546886'},
+    )
+    for file in files:
+        append(report, file)
+
+    stats: dict = defaultdict(lambda: {'missed': 0, 'covered': 0})
+    for counter in report.findall('./group/counter'):
+        counter_stats = stats[counter.attrib['type']]
+        for key in counter_stats:
+            counter_stats[key] += int(counter.attrib[key])
+
+    for counter_type, counters in stats.items():
+        ET.SubElement(
+            report,
+            'counter',
+            {'type': counter_type, **{k: str(v) for k, v in counters.items()}},
+        )
+
+    with open(out_file, 'wb') as fp:
+        fp.write(ET.tostring(report, 'utf8'))
+
+
+def append(report: ET.Element, file: str):
+    subreport = ET.parse(file)
+    subreport_root = subreport.getroot()
+    group = ET.SubElement(
+        report, 'group', attrib={'name': subreport_root.attrib['name']}
+    )
+    for node in subreport_root.findall('./*'):
+        if node.tag != 'sessioninfo':
+            group.append(node)
+
+
+def print_summary(file: str, json_file: str | None):
+    report = ET.parse(file).getroot()
+    data = {}
+    for counter in report.findall('./counter'):
+        missed = int(counter.attrib['missed'])
+        covered = int(counter.attrib['covered'])
+        coverage = coverage_formula(missed, covered)
+        metric = counter.attrib['type'].lower()
+        translated_metric = METRICS_TRANS[metric]
+        data[metric] = {
+            'missed': missed,
+            'covered': covered,
+            'coverage': coverage,
+        }
+        print(
+            f'{translated_metric}: niepokryte={missed}, pokryte={covered}, pokrycie procentowe={coverage}%'
+        )
+    data['total'] = data['instruction']
+    total_coverage = round(data['total']['coverage'])
+    print(f'Pokrycie ogólne: {total_coverage}%')
+    if json_file is not None:
+        with open(json_file, 'w', encoding='utf8') as fp:
+            json.dump({'coverage': data}, fp, ensure_ascii=False)
+
+
+def print_stats(file: str, metric: str, aggregation: str):
+    report = ET.parse(file).getroot()
+    counter = report.find(f'./counter[@type="{metric.upper()}"]')
+    assert counter is not None
+    missed = int(counter.attrib['missed'])
+    if aggregation == 'missed':
+        print(missed)
+    elif aggregation == 'coverage':
+        print(counter_coverage(counter))
+
+
+def verify(args: Namespace):
+    report = ET.parse(args.file).getroot()
+    counters = {
+        counter.attrib['type'].lower(): counter
+        for counter in report.findall('./counter')
+    }
+    errors = []
+    for metric in COV_METRICS:
+        if required := getattr(args, metric):
+            if error := verify_error(metric, counters[metric], required):
+                errors.append(error)
+    if errors:
+        print('\n'.join(errors))
+        sys.exit(1)
+
+
+def verify_error(metric: str, counter: ET.Element, required: str) -> str | None:
+    if required.endswith('%'):
+        required_num = int(required[:-1])
+        actual = round(counter_coverage(counter))
+        if actual < required_num:
+            return MESSAGES_COV[metric].format(actual=actual, required=required_num)
+    else:
+        actual = int(counter.attrib['missed'])
+        if actual > int(required):
+            return MESSAGES_MIN[metric].format(actual=actual, required=required)
+    return None
+
+
+def coverage_formula(missed: int, covered: int) -> float:
+    return round(covered / (covered + missed) * 100, 2)
+
+
+def counter_coverage(counter: ET.Element) -> float:
+    missed = int(counter.attrib['missed'])
+    covered = int(counter.attrib['covered'])
+    return coverage_formula(missed, covered)
+
+
+def main():
+    args = cli()
+    command = args.command
+    if command == 'merge':
+        files = args.files
+        if len(files) == 1:
+            shutil.copy(files[0], args.out)
+            sys.exit(0)
+        merge(files, args.out)
+    elif command == 'summary':
+        print_summary(args.file, args.json)
+    elif command == 'stats':
+        print_stats(args.file, args.metric, args.aggregation)
+    elif command == 'verify':
+        verify(args)
+
+
+if __name__ == '__main__':
+    main()

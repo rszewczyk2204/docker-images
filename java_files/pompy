@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+import argparse
+from xml.etree import ElementTree
+
+
+def parse_cli():
+    parser = argparse.ArgumentParser(
+        description="Zwraca informacje zaszyte w pliku pom.xml"
+    )
+    parser.add_argument("--pom", default="pom.xml", help="Plik pom.xml do parsowania")
+    parser.add_argument("--tag", required=True, help="Nazwa elementu")
+
+    return parser.parse_args()
+
+
+def get_value(pom_file: str, tag: str) -> str:
+    et = ElementTree.parse(pom_file)
+    if not tag.startswith("/"):
+        tag = "/" + tag
+    elem = et.find(f".{tag}", namespaces={"": "http://maven.apache.org/POM/4.0.0"})
+    if elem is None:
+        return ""
+    return elem.text or ""
+
+
+def main():
+    args = parse_cli()
+    print(get_value(args.pom, args.tag), end="")
+
+
+if __name__ == "__main__":
+    main()

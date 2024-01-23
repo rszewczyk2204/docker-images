@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+set -x
+
+tokei --version
+badges --help
+if ! java -version 2>&1 | head -n1 | grep '"1.8'; then
+    google-java-format --version;
+fi
+command -v jacoco2cobertura
+java2codeclimate --help
+pmd2quickfix --help
+pompy --help
+propdoc --help

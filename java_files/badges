@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+from os import makedirs
+from os.path import exists, join
+from xml.etree import ElementTree
+import json
+
+import anybadge
+
+COVERAGE_THRESHOLD = {30: 'red', 50: 'orange', 70: 'yellow', 90: 'green'}
+COVERAGE_LABELS = {
+    'total': {'en': 'Coverage', 'pl': 'Pokrycie'},
+    'branch': {'en': 'Branch coverage', 'pl': 'Pokrycie rozgałęzień'},
+    'class': {'en': 'Class coverage', 'pl': 'Pokrycie klas'},
+    'complexity': {'en': 'Complexity coverage', 'pl': 'Pokrycie złożoności'},
+    'instruction': {'en': 'Instruction coverage', 'pl': 'Pokrycie instrukcji'},
+    'line': {'en': 'Line coverage', 'pl': 'Pokrycie linii'},
+    'method': {'en': 'Method coverage', 'pl': 'Pokrycie metod'}
+}
+
+
+def badges_from_json(json_file: str, lang: str, out_dir: str):
+    with open(json_file, 'r', encoding='utf-8') as fp:
+        data = json.load(fp)
+
+    for metric, stats in data.get('coverage', {}).items():
+        cov_rounded = round(stats['coverage'])
+        coverage(cov_rounded, metric, lang, out_dir)
+
+
+def coverage(value: int, metric: str, lang: str, out_dir: str):
+    labels = COVERAGE_LABELS[metric]
+    label = labels.get(lang) or labels.get('en')
+    badge = anybadge.Badge(
+        label=label, value=value, thresholds=COVERAGE_THRESHOLD, value_suffix='%'
+    )
+    badge.write_badge(join(out_dir, f'coverage-{metric}.svg'), overwrite=True)
+
+
+def version(pom_file: str, lang, out_dir):
+    et = ElementTree.parse(pom_file)
+    version_tag = et.find('./{http://maven.apache.org/POM/4.0.0}version')
+    if version_tag is None:
+        return
+
+    labels = {'en': 'Version', 'pl': 'Wersja'}
+    value = version_tag.text
+    label = labels.get(lang) or labels.get('en')
+    badge = anybadge.Badge(label=label, value=value, default_color='olive')
+    badge.write_badge(join(out_dir, 'version.svg'))
+
+
+def lines(value: str, lang='en', out_dir='badges'):
+    labels = {'en': 'LOC', 'pl': 'LK'}
+    label = labels.get(lang) or labels.get('en')
+    badge = anybadge.Badge(label=label, value=value, default_color='purple')
+    badge.write_badge(join(out_dir, 'lines.svg'))
+
+
+def cli() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description='Generate badges')
+    parser.add_argument('--coverage', type=float, nargs='?', help='Test coverage')
+    parser.add_argument(
+        '--coverage-branch', type=float, nargs='?', help='Test branch coverage'
+    )
+    parser.add_argument(
+        '--coverage-class', type=float, nargs='?', help='Test class coverage'
+    )
+    parser.add_argument(
+        '--coverage-complexity', type=float, nargs='?', help='Test complexity coverage'
+    )
+    parser.add_argument(
+        '--coverage-instruction',
+        type=float,
+        nargs='?',
+        help='Test instruction coverage',
+    )
+    parser.add_argument(
+        '--coverage-line', type=float, nargs='?', help='Test line coverage'
+    )
+    parser.add_argument(
+        '--coverage-method', type=float, nargs='?', help='Test method coverage'
+    )
+    parser.add_argument('--lines', type=int, nargs='?', help='Number of lines of code')
+    parser.add_argument('--json', help='Badge data in JSON file')
+    parser.add_argument(
+        '--lang', type=str, nargs='?', default='en', help='Langauge of the badge'
+    )
+    parser.add_argument(
+        '--out', type=str, nargs='?', default='badges', help='Badges output directory'
+    )
+    parser.add_argument(
+        '--version',
+        default=True,
+        action=argparse.BooleanOptionalAction,
+        help='Generate version badge',
+    )
+    parser.add_argument(
+        '--pom', default='pom.xml', help='pom.xml file used to extract version number'
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = cli()
+
+    if not exists(args.out):
+        makedirs(args.out)
+
+    if args.json is not None:
+        badges_from_json(args.json, args.lang, args.out)
+
+    if args.coverage is not None:
+        coverage(args.coverage, 'total', args.lang, args.out)
+
+    if args.coverage_branch is not None:
+        coverage(args.coverage_branch, 'branch', args.lang, args.out)
+
+    if args.coverage_class is not None:
+        coverage(args.coverage_class, 'class', args.lang, args.out)
+
+    if args.coverage_complexity is not None:
+        coverage(args.coverage_complexity, 'complexity', args.lang, args.out)
+
+    if args.coverage_instruction is not None:
+        coverage(args.coverage_instruction, 'instruction', args.lang, args.out)
+
+    if args.coverage_line is not None:
+        coverage(args.coverage_line, 'line', args.lang, args.out)
+
+    if args.coverage_method is not None:
+        coverage(args.coverage_method, 'method', args.lang, args.out)
+
+    if args.version is not None:
+        version(args.pom, args.lang, args.out)
+
+    if args.lines is not None:
+        lines(args.lines, args.lang, args.out)
+
+if __name__ == '__main__':
+    main()
