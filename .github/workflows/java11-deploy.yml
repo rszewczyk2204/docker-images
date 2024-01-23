@@ -1,0 +1,29 @@
+name: Deploy Java11
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'java11/**'
+      - 'Makefile'
+      - '.github/workflows/java11*'
+
+jobs:
+  deploy_java11:
+    runs-on: ubuntu-latest
+    container:
+      image: bananawhite98/ubuntu:1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Build Java11
+        run: |
+          cd java8
+          make -C ../. build-java11 VERSION=1 DIR=java11
+          echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          make -C ../. push-java11 VERSION=1
+      - name: Cleanup
+        run: |
+          cd java8
+          make -C ../. rmi-java VERSION=1
