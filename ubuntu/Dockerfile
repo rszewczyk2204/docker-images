@@ -1,5 +1,7 @@
 FROM ubuntu:latest
 
+LABEL org.opencontainers.image.source=https://github.com/rszewczyk2204/docker-images
+
 RUN apt-get update \
     && apt-get install --no-install-recommends -y make \
        ca-certificates \
