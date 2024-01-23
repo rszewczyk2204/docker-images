@@ -6,6 +6,7 @@ on:
       - develop
     paths:
       - 'ubuntu/**'
+      - 'Makefile'
 
 jobs:
   deploy_ubuntu:
@@ -19,8 +20,6 @@ jobs:
         run: |
           cd ubuntu
           make -C ../. build-ubuntu VERSION=1 DIR=ubuntu
-      - name: Deploy ubuntu
-        run: |
           echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           make -C ../. push-ubuntu VERSION=1 DIR=ubuntu
       - name: Cleanup

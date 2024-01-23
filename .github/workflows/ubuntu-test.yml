@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'ubuntu/**'
+      - 'Makefile'
 
 jobs:
   test_build_ubuntu:
