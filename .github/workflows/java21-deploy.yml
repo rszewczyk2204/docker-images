@@ -1,0 +1,31 @@
+name: Deploy Java17
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'java21/**'
+      - 'Makefile'
+      - '.github/workflows/java21*'
+
+jobs:
+  deploy_java21:
+    runs-on: ubuntu-latest
+    container:
+      image: bananawhite98/ubuntu:1
+    env:
+      JAVA_VERSION: 21
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Build Java21
+        run: |
+          cd java${{ env.JAVA_VERSION }}
+          make -C ../. build-java${{ env.JAVA_VERSION }} VERSION=1 DIR=java${{ env.JAVA_VERSION }}
+          echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          make -C ../. push-java${{ env.JAVA_VERSION }} VERSION=1
+      - name: Cleanup
+        run: |
+          cd java${{ env.JAVA_VERSION }}
+          make -C ../. rmi-java${{ env.JAVA_VERSION }} VERSION=1
