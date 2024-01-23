@@ -14,16 +14,18 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: bananawhite98/ubuntu:1
+    env:
+      JAVA_VERSION: 8
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Build Java8
         run: |
-          cd java8
-          make -C ../. build-java8 VERSION=1 DIR=java8
+          cd java${{ env.JAVA_VERSION }}
+          make -C ../. build-java${{ env.JAVA_VERSION }} VERSION=1 DIR=java${{ env.JAVA_VERSION }}
           echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          make -C ../. push-java8 VERSION=1
+          make -C ../. push-java${{ env.JAVA_VERSION }} VERSION=1
       - name: Cleanup
         run: |
           cd java8
-          make -C ../. rmi-java VERSION=1
+          make -C ../. rmi-java${{ env.JAVA_VERSION }} VERSION=1
