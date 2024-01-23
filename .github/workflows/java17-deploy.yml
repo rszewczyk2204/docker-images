@@ -1,25 +1,25 @@
-name: Deploy Java11
+name: Deploy Java17
 
 on:
   push:
     branches:
       - develop
     paths:
-      - 'java11/**'
+      - 'java17/**'
       - 'Makefile'
-      - '.github/workflows/java11*'
+      - '.github/workflows/java17*'
 
 jobs:
-  deploy_java11:
+  deploy_java17:
     runs-on: ubuntu-latest
     container:
       image: bananawhite98/ubuntu:1
     env:
-      JAVA_VERSION: 11
+      JAVA_VERSION: 17
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Build Java11
+      - name: Build Java17
         run: |
           cd java${{ env.JAVA_VERSION }}
           make -C ../. build-java${{ env.JAVA_VERSION }} VERSION=1 DIR=java${{ env.JAVA_VERSION }}

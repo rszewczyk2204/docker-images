@@ -1,23 +1,23 @@
-name: Java8 Test
+name: Java17 Test
 
 on:
   pull_request:
     paths:
-      - 'java8/**'
+      - 'java17/**'
       - 'Makefile'
-      - '.github/workflows/java8*'
+      - '.github/workflows/java17*'
 
 jobs:
-  test_build_java8:
+  test_build_java17:
     runs-on: ubuntu-latest
     container:
       image: bananawhite98/ubuntu:1
     env:
-      JAVA_VERSION: 8
+      JAVA_VERSION: 17
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Test Java8
+      - name: Test Java17
         run: |
           cd java${{ env.JAVA_VERSION }}
           make -C ../. build-java${{ env.JAVA_VERSION }} VERSION=test DIR=java${{ env.JAVA_VERSION }}
