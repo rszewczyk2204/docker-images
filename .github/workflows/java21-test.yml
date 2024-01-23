@@ -1,0 +1,27 @@
+name: Java21 Test
+
+on:
+  pull_request:
+    paths:
+      - 'java21/**'
+      - 'Makefile'
+      - '.github/workflows/java21*'
+
+jobs:
+  test_build_java21:
+    runs-on: ubuntu-latest
+    container:
+      image: bananawhite98/ubuntu:1
+    env:
+      JAVA_VERSION: 21
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Test Java21
+        run: |
+          cd java${{ env.JAVA_VERSION }}
+          make -C ../. build-java${{ env.JAVA_VERSION }} VERSION=test DIR=java${{ env.JAVA_VERSION }}
+      - name: Cleanup
+        run: |
+          cd java${{ env.JAVA_VERSION }}
+          make -C ../. rmi-java${{ env.JAVA_VERSION }} VERSION=test
