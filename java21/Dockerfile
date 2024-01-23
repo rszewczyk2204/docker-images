@@ -1,5 +1,7 @@
 FROM openjdk:21-slim
 
+LABEL org.opencontainers.image.source=https://github.com/rszewczyk2204/docker-images
+
 COPY ../java_files/* /usr/local/bin
 
 RUN apt-get update \
