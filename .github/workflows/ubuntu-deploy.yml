@@ -1,0 +1,27 @@
+name: Deploy ubuntu
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'ubuntu/**'
+
+jobs:
+  deploy_ubuntu:
+    runs-on: ubuntu-latest
+    container:
+      image: bananawhite98/ubuntu:1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Deploy ubuntu
+        run: |
+          cd ubuntu
+          echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          make -C ../. build-ubuntu VERSION=1 DIR=ubuntu
+          make -C ../. push-ubuntu VERSION=1 DIR=ubuntu
+      - name: Cleanup
+        run: |
+          cd ubuntu
+          make -C ../. rmi-ubuntu VERSION=1 DIR=ubuntu

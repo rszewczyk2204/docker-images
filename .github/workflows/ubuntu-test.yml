@@ -1,0 +1,25 @@
+name: Test Docker
+
+on:
+  pull_request:
+    paths:
+      - 'ubuntu/**'
+
+jobs:
+  test_build_ubuntu:
+    runs-on: ubuntu-latest
+    container:
+      image: bananawhite98/ubuntu:1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Test ubuntu
+        run: |
+          cd ubuntu
+          make -C ../. build-ubuntu VERSION=test DIR=ubuntu
+      - name: Cleanup
+        run: |
+          cd ubuntu
+          make -C ../. rmi-ubuntu VERSION=test DIR=ubuntu
+
+
