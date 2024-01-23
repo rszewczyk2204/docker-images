@@ -1,0 +1,28 @@
+name: Deploy python
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'python/**'
+      - 'Makefile'
+
+jobs:
+  deploy_python:
+    runs-on: ubuntu-latest
+    container:
+      image: bananawhite98/ubuntu:1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Build python
+        run: |
+          cd ubuntu
+          make -C ../. build-python VERSION=1 DIR=python
+          echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          make -C ../. push-python VERSION=1
+      - name: Cleanup
+        run: |
+          cd ubuntu
+          make -C ../. rmi-python VERSION=1

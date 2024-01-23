@@ -1,0 +1,24 @@
+name: Test Docker
+
+on:
+  pull_request:
+    paths:
+      - 'python/**'
+      - 'Makefile'
+
+jobs:
+  test_build_python:
+    runs-on: ubuntu-latest
+    container:
+      image: bananawhite98/ubuntu:1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Test python
+        run: |
+          cd python
+          make -C ../. build-python VERSION=test DIR=ubuntu
+      - name: Cleanup
+        run: |
+          cd python
+          make -C ../. rmi-python VERSION=test
