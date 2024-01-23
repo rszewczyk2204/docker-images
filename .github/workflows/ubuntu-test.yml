@@ -21,5 +21,3 @@ jobs:
         run: |
           cd ubuntu
           make -C ../. rmi-ubuntu VERSION=test DIR=ubuntu
-
-
