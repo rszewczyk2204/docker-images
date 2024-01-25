@@ -5,10 +5,10 @@ from xml.etree import ElementTree
 
 def parse_cli():
     parser = argparse.ArgumentParser(
-        description="Zwraca informacje zaszyte w pliku pom.xml"
+        description="Gives back information written in pom.xml file."
     )
-    parser.add_argument("--pom", default="pom.xml", help="Plik pom.xml do parsowania")
-    parser.add_argument("--tag", required=True, help="Nazwa elementu")
+    parser.add_argument("--pom", default="pom.xml", help="pom.xml file to parse")
+    parser.add_argument("--tag", required=True, help="Element name.")
 
     return parser.parse_args()
 

@@ -6,6 +6,7 @@ on:
       - 'java21/**'
       - 'Makefile'
       - '.github/workflows/java21*'
+      - 'java_files/**'
 
 jobs:
   test_build_java21:

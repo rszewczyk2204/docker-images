@@ -8,6 +8,7 @@ on:
       - 'java17/**'
       - 'Makefile'
       - '.github/workflows/java17*'
+      - 'java_files/**'
 
 jobs:
   deploy_java17:
