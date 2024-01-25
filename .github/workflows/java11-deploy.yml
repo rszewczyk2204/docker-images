@@ -8,6 +8,7 @@ on:
       - 'java11/**'
       - 'Makefile'
       - '.github/workflows/java11*'
+      - 'java_files/**'
 
 jobs:
   deploy_java11:

@@ -9,96 +9,96 @@ import json
 
 COV_METRICS = ['branch', 'class', 'complexity', 'instruction', 'line', 'method']
 METRICS_TRANS = {
-    'branch': 'Rozgałęzienia',
-    'class': 'Klasy',
-    'complexity': 'Złożoność cyklomatyczna',
-    'instruction': 'Instrukcje',
-    'line': 'Linie',
-    'method': 'Metody',
+    'branch': 'Branches',
+    'class': 'Classes',
+    'complexity': 'Cyclomatic complexity',
+    'instruction': 'Instructions',
+    'line': 'Lines',
+    'method': 'Methods',
 }
 
 MESSAGES_MIN = {
-    'branch': 'Liczba niepokrytych rozgałęzień {actual} jest większa, niż wymagane minimum {required}.',
-    'class': 'Liczba niepokrytych klas {actual} jest większa, niż wymagane minimum {required}.',
-    'complexity': 'Liczba brakujących testów potrzebnych żeby obsłużyć wszystie ścieżki {actual} jest większa, niż wymagane minimum {required}.',
-    'instruction': 'Liczba niepokrytych instrukcji {actual} jest większa, niż wymagane minimum {required}.',
-    'line': 'Liczba niepokrytych linii {actual} jest większa, niż wymagane minimum {required}.',
-    'method': 'Liczba niepokrytych metod {actual} jest większa, niż wymagane minimum {required}.',
+    'branch': 'Number of non-covered branches {actual} is bigger, than required minimum {required}.',
+    'class': 'Number of non-covered classes {actual} jest bigger, than required minimum {required}.',
+    'complexity': 'Number of missing tests required to cover all paths {actual} is bigger, than required minimum {required}.',
+    'instruction': 'Number of non-covered instructions {actual} is bigger, than required minimum {required}.',
+    'line': 'Number of non-covered lines {actual} is bigger, than required minimum {required}.',
+    'method': 'Number of non-covered methods {actual} is bigger, than required minimum {required}.',
 }
 
 MESSAGES_COV = {
-    'branch': 'Pokrycie rozgałęzień {actual}% jest mniejsze, niż wymagany poziom {required}%.',
-    'class': 'Pokrycie klas {actual}% jest mniejsze, niż wymagany poziom {required}%.',
-    'complexity': 'Pokrycie wszystkich ścieżek wykonania {actual}% jest mniejsze, niż wymagany poziom {required}%.',
-    'instruction': 'Pokrycie istrukcji {actual}% jest mniejsze, niż wymagany poziom {required}%.',
-    'line': 'Pokrycie linii {actual}% jest mniejsze, niż wymagany poziom {required}%.',
-    'method': 'Pokrycie metod {actual}% jest mniejsze, niż wymagany poziom {required}%.',
+    'branch': 'Coverage of branches {actual}% is less, than required level {required}%.',
+    'class': 'Coverage of classes {actual}% is less, than required level {required}%.',
+    'complexity': 'Coverage of all paths of execution {actual}% is less, than required level {required}%.',
+    'instruction': 'Coverage of all instructions {actual}% is less, than required level {required}%.',
+    'line': 'Coverage of the lines {actual}% is less, than required level {required}%.',
+    'method': 'Coverage of the methods {actual}% is less, than required level {required}%.',
 }
 
 
 def cli() -> Namespace:
-    parser = ArgumentParser(description='Narzędzia do pracy z raportami jacoco.')
+    parser = ArgumentParser(description='Tools to work with jacoco reports.')
     subparsers = parser.add_subparsers(
         title='subcommands', dest='command', required=True
     )
 
     merge_parser = subparsers.add_parser(
-        'merge', help='Scala pliki z raportami w formacie jacoco.xml'
+        'merge', help='Merges files with reports in jacoco.xml format.'
     )
     merge_parser.add_argument('files', nargs='+', help='Pliki jacoco.xml z raportami')
     merge_parser.add_argument(
-        '-o', '--out', help='Plik do którego zapisać wynik scalania.'
+        '-o', '--out', help='File to save the result of the merge to'
     )
 
-    stats_parser = subparsers.add_parser('stats', help='Wypisuje statystyki z raportu')
-    stats_parser.add_argument('file', help='Plik z raportem')
+    stats_parser = subparsers.add_parser('stats', help='Prints report statistics')
+    stats_parser.add_argument('file', help='File with report')
     stats_parser.add_argument(
         '--metric',
         choices=['branch', 'class', 'complexity', 'instruction', 'line', 'method'],
         required=True,
-        help='Typ metryki.',
+        help='Metric type.',
     )
     stats_parser.add_argument(
         '--aggregation',
         choices=['coverage', 'missed'],
         required=True,
-        help='Typ agregacji.',
+        help='Aggregation type.',
     )
 
-    summary = subparsers.add_parser('summary', help='Wypisuje podsumowanie pokrycia')
-    summary.add_argument('file', help='Plik z raportem')
+    summary = subparsers.add_parser('summary', help='Prints the summarize of the coverage')
+    summary.add_argument('file', help='File with report')
     summary.add_argument(
-        '--json', help='Plik do którego zapisać pokrycie w formacie JSON'
+        '--json', help='File to save the result of coverage in JSON format to.'
     )
 
     verify_parser = subparsers.add_parser(
         'verify',
-        help='Weryfikuje, czy wymagania minimalnego pokrycia zostały spełnione',
+        help='Verifies, if results of minimal coverage requirements were met.',
     )
-    verify_parser.add_argument('file', help='Plik z raportem')
+    verify_parser.add_argument('file', help='File with report')
     verify_parser.add_argument(
         '--branch',
-        help='Weryfikuje pokrycie rozgałęzień. Wartości liczbowa oznacza maksymalną dozwoloną liczbę niepokrytych rozgałęzień, a wartość z %, minimalną procentową dozwoloną wartość pokrycia.',
+        help='Verifies branches coverage. Number describes maximum allowed of non-covered branches, and value with % sign, minimum allowed coverage percentage value.',
     )
     verify_parser.add_argument(
         '--class',
-        help='Weryfikuje pokrycie klas. Wartości liczbowa oznacza maksymalną dozwoloną liczbę niepokrytych klas, a wartość z %, minimalną procentową dozwoloną wartość pokrycia.',
+        help='Verifies class coverage. Number describes maximum allowed of non-covered classes, and value with % sign, minimum allowed coverage percentage value.',
     )
     verify_parser.add_argument(
         '--complexity',
-        help='Weryfikuje pokrycie złożoności. Wartości liczbowa oznacza maksymalną dozwoloną liczbę złożoności, a wartość z %, minimalną procentową dozwoloną wartość pokrycia.',
+        help='Verifies complexity coverage. Number describes maximum allowed complexity, and with % sign, minimum allowed coverage percentage value.',
     )
     verify_parser.add_argument(
         '--instruction',
-        help='Weryfikuje pokrycie instrukcji. Wartości liczbowa oznacza maksymalną dozwoloną liczbę niepokrytych instrukcji, a wartość z %, minimalną procentową dozwoloną wartość pokrycia.',
+        help='Verifies instruction coverage. Number describes maximum allowed of non-covered instructions, and with % sign, minimum allowed coverage percentage value.',
     )
     verify_parser.add_argument(
         '--line',
-        help='Weryfikuje pokrycie linii. Wartości liczbowa oznacza maksymalną dozwoloną liczbę niepokrytych linii, a wartość z %, minimalną procentową dozwoloną wartość pokrycia.',
+        help='Verifies lines coverage. Number describes maximum allowed of non-covered lines, and with % sign, minimum allowed coverage percentage value.',
     )
     verify_parser.add_argument(
         '--method',
-        help='Weryfikuje pokrycie metod. Wartości liczbowa oznacza maksymalną dozwoloną liczbę niepokrytych metod, a wartość z %, minimalną procentową dozwoloną wartość pokrycia.',
+        help='Verifies method coverage. Number describes maximum allowed of non-covered method, and with % sign, minimum allowed coverage percentage value.',
     )
     return parser.parse_args()
 
@@ -156,11 +156,11 @@ def print_summary(file: str, json_file: str | None):
             'coverage': coverage,
         }
         print(
-            f'{translated_metric}: niepokryte={missed}, pokryte={covered}, pokrycie procentowe={coverage}%'
+            f'{translated_metric}: non-covered={missed}, covered={covered}, percentage covered={coverage}%'
         )
     data['total'] = data['instruction']
     total_coverage = round(data['total']['coverage'])
-    print(f'Pokrycie ogólne: {total_coverage}%')
+    print(f'Total coverage: {total_coverage}%')
     if json_file is not None:
         with open(json_file, 'w', encoding='utf8') as fp:
             json.dump({'coverage': data}, fp, ensure_ascii=False)

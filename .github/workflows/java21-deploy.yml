@@ -1,4 +1,4 @@
-name: Deploy Java17
+name: Deploy Java21
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
       - 'java21/**'
       - 'Makefile'
       - '.github/workflows/java21*'
+      - 'java_files/**'
 
 jobs:
   deploy_java21:

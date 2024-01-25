@@ -6,6 +6,7 @@ on:
       - 'java8/**'
       - 'Makefile'
       - '.github/workflows/java8*'
+      - 'java_files/**'
 
 jobs:
   test_build_java8:

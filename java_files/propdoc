@@ -7,7 +7,7 @@ from typing import Iterable
 
 def cli() -> Namespace:
     parser = ArgumentParser(
-        description="Generuje plik HTML z dokumentacją konfiguracji na podstawie spring-configuration-metadata.json"
+        description="Generates HTML file with configuration documentation based on spring-configuration-metadata.json"
     )
     parser.add_argument("html", type=Path)
     return parser.parse_args()
@@ -26,7 +26,7 @@ def convert_html(files: list[Path]) -> str:
            <html>
            <head>
                 <meta charset="utf-8" />
-                <title>Dokumentacja ustawień</title>
+                <title>Settings documentation</title>
                 <style>
                     html {
                         color: #1a1a1a;
@@ -52,13 +52,13 @@ def convert_html(files: list[Path]) -> str:
                 </style>
            </head>
            <body>
-           <h1>Ustawienia projektu</h1>
+           <h1>Settings documentation</h1>
            <dl>
         """,
     ]
     for prop in load_properties(files):
         doc.append(
-            f"<dt><code>{prop['name']}</code></dt><dd>{prop.get('description', 'Brak dokumentacji')}</dd>\n"
+            f"<dt><code>{prop['name']}</code></dt><dd>{prop.get('description', 'Missing documentation')}</dd>\n"
         )
         doc.append("</dl></body></html>")
     return "\n".join(doc)
