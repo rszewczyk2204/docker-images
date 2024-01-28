@@ -18,11 +18,14 @@ jobs:
 
       - name: Clone repo
         run: |
+          cd /home/runner/work
           git clone ${{ secrets.PAGES_REPO_GIT }}
           cd ${{ secrets.REPO_NAME }}
 
       - name: Put entry in github pages
         run: |
+          cd /home/runner/work/${{ secrets.REPO_NAME }}
+          chmod 777 index.html
           if ! grep -q '<a href="#" class="repo-link">docker-images</a>' index.html; then
           echo "Repo entry not found, adding it..."
           sed -i '/<section class="repos">/,/<\/section>/ s~<\/section>~ \
@@ -38,16 +41,12 @@ jobs:
                           </div> \
                       </div> \
                       <div class="separator"></div> \
-                  </section>~' index.html 
+                  </section>~' index.html
+          git status
           else
             echo "Repo entry already exists."
           fi
-          git diff --exit-code || { echo "There are no changes in the working directory"; exit 1; }
-          git config user.name "${{ secrets.GIT_USERNAME }}"
-          git config user.email "${{ secrets.GIT_USER_EMAIL }}"
-          git add .
-          git commit -m "Add docker-image entry"
 
       - name: Cleanup
         run: |
-          rm -rf ${{ secrets.REPO_NAME }}
+          rm -rf /home/runner/work/${{ secrets.REPO_NAME }}
