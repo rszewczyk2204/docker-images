@@ -24,7 +24,6 @@ jobs:
       - name: Put entry in github pages
         run: |
           cd /home/runner/work/${{ secrets.REPO_NAME }}
-          ls -la
           if ! grep -q '<a href="https://github.com/rszewczyk2204/docker-images" class="repo-link">docker-images</a>' index.html; then
           echo "Repo entry not found, adding it..."
           sudo sed -i '/<section class="repos">/,/<\/section>/ s~<\/section>~ \
