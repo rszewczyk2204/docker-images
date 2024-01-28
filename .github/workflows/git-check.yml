@@ -1,0 +1,102 @@
+name: GitLint Workflow
+
+on:
+  pull_request:
+    branches:
+      - '*'
+
+env:
+  CI_MAX_GIT_FILESIZE: 1048576  # 1MB in bytes
+  CI_ENABLED_LINT_GIT_MAX_CHARS: 72
+
+jobs:
+
+  lint_git_duplicated:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 50
+
+      - name: Validate Duplicated Commits
+        run: |
+          git --version
+          git branch
+
+          commits_count=$(git log --format=%s $GITHUB_BASE_REF.. | wc -l)
+          deduplicated_commits_count=$(git log --format=%s $GITHUB_BASE_REF.. | sort -u | wc -l)
+
+          if [ $commits_count -ne $deduplicated_commits_count ]; then
+            echo "Remove revisions with the same messages as they make it harder to navigate the change history."
+            echo "You probably need to flatten the history before merging."
+            echo "You can do this with the command:"
+            echo "git rebase -i $GITHUB_BASE_REF"
+            echo "Duplicated revisions:"
+            diff --unified --color=always <(git log --format=%s $GITHUB_BASE_REF..$GITHUB_SHA) <(git log --format=%s $GITHUB_BASE_REF..$GITHUB_SHA | awk '!x[$0]++')
+            exit 1
+          fi
+  
+
+  lint_git_suggestions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Validate GitLab Suggestions
+        run: |
+          git --version
+
+          exit_code=0
+          suggestion_commits="$(git log --format="%h %s" ${{ github.event.before }}.. | grep -P 'Apply \d+ suggestion\(s\)')" || exit_code=$?
+
+          if [ $exit_code -eq 0 ]; then
+            echo "Adding GitLab suggestions to reviews in separate revisions is not allowed."
+            echo "You need to flatten the history."
+            echo "Revisions violating the rule:"
+            echo -e "${suggestion_commits}"
+            exit 1
+          fi
+
+  lint_git_file_size:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Validate Git File Size
+        run: |
+          git --version
+
+          large_files=$(git diff-tree --diff-filter=A ${{ github.event.before }}.. -r --name-only | xargs --no-run-if-empty stat --format '%s %n' | awk '$1 > $CI_MAX_GIT_FILESIZE')
+
+          if [ ! -z "${large_files}" ]; then
+            echo "Detected new files larger than the CI_MAX_GIT_FILESIZE limit: $CI_MAX_GIT_FILESIZE"
+            echo "${large_files}"
+            exit 1
+          fi
+
+  lint_git_commit_message:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Validate Git Commit Message
+        run: |
+          has_error=0
+          for line in $(git log --abbrev=10 --format='%h %s' ${{ github.event.before }}..); do
+            hash="${line:0:10}"
+            message="${line:11}"
+            len="${#message}"
+            if [ $len -gt $CI_ENABLED_LINT_GIT_MAX_CHARS ]; then
+              echo "Revision ${hash} has a longer title than allowed: $len > $CI_ENABLED_LINT_GIT_MAX_CHARS"
+              printf "\t%s\n" "${message}"
+              has_error=1
+            fi
+          done
+          if [ $has_error -eq 1 ]; then
+            exit 1
+          fi
