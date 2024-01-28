@@ -19,12 +19,11 @@ jobs:
       - name: Clone repo
         run: |
           cd /home/runner/work
-          git clone ${{ secrets.PAGES_REPO_GIT }}
-          cd ${{ secrets.REPO_NAME }}
+          git clone https://github.com/rszewczyk2204/rszewczyk2204.github.io.git
 
       - name: Put entry in github pages
         run: |
-          cd /home/runner/work/${{ secrets.REPO_NAME }}
+          cd /home/runner/work/rszewczyk2204.github.io
           chmod 777 index.html
           ls -la
           if ! grep -q '<a href="#" class="repo-link">docker-images</a>' index.html; then
@@ -54,4 +53,4 @@ jobs:
 
       - name: Cleanup
         run: |
-          rm -rf /home/runner/work/${{ secrets.REPO_NAME }}
+          rm -rf /home/runner/work/rszewczyk2204.github.io
