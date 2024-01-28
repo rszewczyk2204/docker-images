@@ -18,6 +18,7 @@ jobs:
 
       - name: Clone repo
         run: |
+          cd /home/runner/work
           git clone ${{ secrets.PAGES_REPO_GIT }}
           cd ${{ secrets.REPO_NAME }}
 
