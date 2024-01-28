@@ -16,10 +16,10 @@ jobs:
       - name: Clone github pages repo
         run: |
           git clone ${{ secrets.PAGES_REPO_GIT }}
-          cd ${{ secrets.REPO_NAME }}
 
       - name: Check if docker-images entry exists
         run: |
+          cd ${{ secrets.REPO_NAME }}
           if ! grep -q '<a href="#" class="repo-link">docker-images</a>' index.html; then
           echo "Repo entry not found, adding it..."
           sed -i '/<section class="repos">/,/<\/section>/ s~<\/section>~ \
