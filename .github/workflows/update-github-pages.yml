@@ -13,7 +13,7 @@ jobs:
       - name: Github pages
         uses: actions/checkout@master
         with:
-          name: rszewczyk2204/rszewczyk2204.github.io
+          repository: rszewczyk2204/rszewczyk2204.github.io
           ref: refs/heads/main
 
       - name: Put entry in github pages
