@@ -28,22 +28,20 @@ jobs:
           ls -la
           if ! grep -q '<a href="#" class="repo-link">docker-images</a>' index.html; then
           echo "Repo entry not found, adding it..."
-          awk '/<section class="repos">/,/<\/section>/ { sub(/<\/section>/, "\
-                      <div class=\"repo-item\"> \
-                          <h4 class=\"h4\"><a href=\"https://github.com/rszewczyk2204/docker-images\" class=\"repo-link\">docker-images</a></h4> \
-                          <button class=\"expand-repo-button\" data-expand-button> \
+          sudo sed -i '/<section class="repos">/,/<\/section>/ s~<\/section>~ \
+                      <div class="repo-item"> \
+                          <h4 class="h4"><a href="https://github.com/rszewczyk2204/docker-images" class="repo-link">docker-images</a></h4> \
+                          <button class="expand-repo-button" data-expand-button> \
                               <span>docker-images</span> \
-                              <ion-icon name=\"chevron-down\"></ion-icon> \
+                              <ion-icon name="chevron-down"></ion-icon> \
                           </button> \
-                          <div data-expand-info=\"docker-images\" class=\"expand-repo-info\"> \
+                          <div data-expand-info="docker-images" class="expand-repo-info"> \
                               <span>Repo containing docker images to run more advanced GitHub actions. \
                               </span> \
                           </div> \
                       </div> \
-                      <div class=\"separator\"></div> \
-                  </section>"); print }' index.html > output.html
-          rm index.html
-          mv output.html index.html
+                      <div class="separator"></div> \
+                  </section>~' index.html
           git status
           git config user.name "${{ secrets.GIT_USERNAME }}"
           git config user.email "${{ secrets.GIT_USER_EMAIL }}"
