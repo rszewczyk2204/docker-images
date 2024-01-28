@@ -45,7 +45,7 @@ jobs:
           git config user.email "ryszardszewczyk2204@gmail.com"
           git add .
           git commit -m "Add docker-image entry"
-          git push origin main:main -u "${{ secrets.PAT }}"
+          git push origin main
           else
             echo "Repo entry already exists."
           fi
