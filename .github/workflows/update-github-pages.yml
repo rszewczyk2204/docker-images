@@ -20,6 +20,7 @@ jobs:
 
           if ! grep -q '<a href="https://github.com/rszewczyk2204/docker-images" class="repo-link">docker-images</a>' index.html; then
             echo "Repo entry not found, adding it..."
+            pwd
             sed -i '/<section class="repos">/a \
                     <div class="repo-item"> \
                         <h4 class="h4"><a href="https://github.com/rszewczyk2204/docker-images" class="repo-link">docker-images</a></h4> \
