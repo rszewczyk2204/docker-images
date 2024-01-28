@@ -13,12 +13,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Clone github pages repo
+      - name: Put entry in github pages
         run: |
           git clone ${{ secrets.PAGES_REPO_GIT }}
-
-      - name: Check if docker-images entry exists
-        run: |
           cd ${{ secrets.REPO_NAME }}
           if ! grep -q '<a href="#" class="repo-link">docker-images</a>' index.html; then
           echo "Repo entry not found, adding it..."
@@ -39,10 +36,6 @@ jobs:
           else
             echo "Repo entry already exists."
           fi
-
-      - name: Push changes to develop
-        run: |
-          cd ${{ secrets.REPO_NAME }}
           git config user.name "${{ secrets.GIT_USERNAME }}"
           git config user.email "${{ secrets.GIT_USER_EMAIL }}"
           git add index.html
