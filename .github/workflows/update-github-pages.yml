@@ -25,7 +25,6 @@ jobs:
         run: |
           cd /home/runner/work/rszewczyk2204.github.io
           chmod 777 index.html
-          ls -la
           if ! grep -q '<a href="#" class="repo-link">docker-images</a>' index.html; then
           echo "Repo entry not found, adding it..."
           sed -i '/<section class="repos">/,/<\/section>/ s~<\/section>~ \
@@ -46,7 +45,7 @@ jobs:
           git config user.email "ryszardszewczyk2204@gmail.com"
           git add .
           git commit -m "Add docker-image entry"
-          git push origin HEAD:main
+          git push origin main:main -u "${{ secrets.PAT }}"
           else
             echo "Repo entry already exists."
           fi
