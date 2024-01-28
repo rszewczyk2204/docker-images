@@ -42,8 +42,8 @@ jobs:
                       </div> \
                       <div class="separator"></div> \
                   </section>~' index.html
-          git config user.name "${{ secrets.GIT_USERNAME }}"
-          git config user.email "${{ secrets.GIT_USER_EMAIL }}"
+          git config user.name "Ryszard Szewczyk"
+          git config user.email "ryszardszewczyk2204@gmail.com"
           git add .
           git commit -m "Add docker-image entry"
           git push origin HEAD:main
