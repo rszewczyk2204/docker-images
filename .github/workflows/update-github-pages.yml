@@ -12,38 +12,38 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+        with:
+          repository: rszewczyk2204/rszewczyk2204.github.io
+          token: ${{ secrets.GHCR_TOKEN }}
 
       - name: Put entry in github pages
         run: |
-          cd /home/runner/work
-          git clone ${{ secrets.PAGES_REPO_GIT }}
-          cd ${{ secrets.REPO_NAME }}
-
-          if ! grep -q '<a href="https://github.com/rszewczyk2204/docker-images" class="repo-link">docker-images</a>' index.html; then
+            git clone ${{ secrets.PAGES_REPO_GIT }}
+            cd ${{ secrets.REPO_NAME }}
+            if ! grep -q '<a href="#" class="repo-link">docker-images</a>' index.html; then
             echo "Repo entry not found, adding it..."
-            pwd
-            sed -i '/<section class="repos">/a \
-                    <div class="repo-item"> \
-                        <h4 class="h4"><a href="https://github.com/rszewczyk2204/docker-images" class="repo-link">docker-images</a></h4> \
-                        <button class="expand-repo-button" data-expand-button> \
-                            <span>docker-images</span> \
-                            <ion-icon name="chevron-down"></ion-icon> \
-                        </button> \
-                        <div data-expand-info="docker-images" class="expand-repo-info"> \
-                            <span>Repo containing docker images to run more advanced GitHub actions. \
-                            </span> \
+            sed -i '/<section class="repos">/,/<\/section>/ s~<\/section>~ \
+                        <div class="repo-item"> \
+                            <h4 class="h4"><a href="https://github.com/rszewczyk2204/docker-images" class="repo-link">docker-images</a></h4> \
+                            <button class="expand-repo-button" data-expand-button> \
+                                <span>docker-images</span> \
+                                <ion-icon name="chevron-down"></ion-icon> \
+                            </button> \
+                            <div data-expand-info="docker-images" class="expand-repo-info"> \
+                                <span>Repo containing docker images to run more advanced GitHub actions. \
+                                </span> \
+                            </div> \
                         </div> \
-                    </div> \
-                    <div class="separator"></div>' index.html
-          else
-            echo "Repo entry already exists."
-          fi
-
-          git config user.name "${{ secrets.GIT_USERNAME }}"
-          git config user.email "${{ secrets.GIT_USER_EMAIL }}"
-          git add index.html
-          git commit -m "Add docker-image entry"
-          git push origin main
+                        <div class="separator"></div> \
+                    </section>~' index.html 
+            else
+              echo "Repo entry already exists."
+            fi
+            git config user.name "${{ secrets.GIT_USERNAME }}"
+            git config user.email "${{ secrets.GIT_USER_EMAIL }}"
+            git add index.html
+            git commit -m "Add docker-image entry"
+            git push origin main
 
 
       - name: Cleanup
