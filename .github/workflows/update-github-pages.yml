@@ -10,11 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Github pages
+        uses: actions/checkout@master
         with:
-          repository: rszewczyk2204/rszewczyk2204.github.io
-          token: ${{ secrets.GHCR_TOKEN }}
+          name: rszewczyk2204/rszewczyk2204.github.io
+          ref: refs/heads/release
 
       - name: Put entry in github pages
         run: |
