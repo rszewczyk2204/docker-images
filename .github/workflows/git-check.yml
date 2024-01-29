@@ -35,3 +35,33 @@ jobs:
       - name: Clean up
         run: |
           sudo rm -rf ${{ secrets.REPO_NAME }}
+
+  lint_git_duplicated:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Lint Git Duplicated
+        run: |
+          git config --global --add safe.directory /__w/docker-images/docker-images
+          git checkout ${{ github.head_ref }}
+          commits_count=$(git log --format=%s "refs/remotes/origin/${{ github.base_ref }}.." | wc -l)
+          deduplicated_commits_count=$(git log --format=%s "refs/remotes/origin/${{ github.base_ref }}.." | sort -u | wc -l)
+          if [[ ${commits_count} -ne ${deduplicated_commits_count} ]]; then
+            echo "You should delete commits with the same message, as they make it harder to go through the history of changes."
+            echo "Probably should squash the history before merging."
+            echo "You can achieve it with the given command:"
+            echo "git rebase -i ${{ github.base_ref }}"
+            echo "Duplicated commits:"
+            diff --unified --color=always <(git log --format=%s "refs/remotes/origin/${{ github.base_ref }}..") <(git log --format=%s "refs/remotes/origin/${{ github.base_ref }}.." | awk '!x[$0]++')
+            exit 1
+          else
+            echo "No duplicated commits found."
+          fi
+
+      - name: Clean up
+        run: |
+          sudo rm -rf ${{ secrets.REPO_NAME }}
