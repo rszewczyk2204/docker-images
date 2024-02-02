@@ -20,7 +20,7 @@ jobs:
 
       - name: Lint Git Pull
         run: |
-          git config --global --add safe.directory /__w/docker-images/docker-images
+          git config --global --add safe.directory /__w/${{ github.repository }}/${{ github.repository }}
           git checkout ${{ github.head_ref }}
           commits=$(git log --oneline --merges "refs/remotes/origin/${{ github.base_ref }}.." | wc -l)
           if [[ $commits -gt 0 ]]; then
@@ -34,7 +34,7 @@ jobs:
 
       - name: Clean up
         run: |
-          sudo rm -rf ${{ secrets.REPO_NAME }}
+          sudo rm -rf ${{ github.repository }}
 
   lint_git_duplicated:
     runs-on: ubuntu-latest
@@ -46,7 +46,7 @@ jobs:
 
       - name: Lint Git Duplicated
         run: |
-          git config --global --add safe.directory /__w/docker-images/docker-images
+          git config --global --add safe.directory /__w/${{ github.repository }}/${{ github.repository }}
           git checkout ${{ github.head_ref }}
           commits_count=$(git log --format=%s "refs/remotes/origin/${{ github.base_ref }}.." | wc -l)
           deduplicated_commits_count=$(git log --format=%s "refs/remotes/origin/${{ github.base_ref }}.." | sort -u | wc -l)
@@ -64,7 +64,7 @@ jobs:
 
       - name: Clean up
         run: |
-          sudo rm -rf ${{ secrets.REPO_NAME }}
+          sudo rm -rf ${{ github.repository }}
 
   lint_git_suggestions:
     runs-on: ubuntu-latest
@@ -76,7 +76,7 @@ jobs:
 
       - name: Lint Git Suggestions
         run: |
-          git config --global --add safe.directory /__w/docker-images/docker-images
+          git config --global --add safe.directory /__w/${{ github.repository }}/${{ github.repository }}
           git checkout ${{ github.head_ref }}
           exit_code=0
           suggestion_commits=$(git log --format="%h %s" "refs/remotes/origin/${{ github.base_ref }}.." | grep -E 'Apply [0-9]+ suggestion\(s\)') || exit_code=$?
@@ -94,7 +94,7 @@ jobs:
 
       - name: Clean up
         run: |
-          sudo rm -rf ${{ secrets.REPO_NAME }}
+          sudo rm -rf ${{ github.repository }}
 
   lint_git_file_size:
     runs-on: ubuntu-latest
@@ -106,7 +106,7 @@ jobs:
 
       - name: Lint Git File Size
         run: |
-          git config --global --add safe.directory /__w/docker-images/docker-images
+          git config --global --add safe.directory /__w/${{ github.repository }}/${{ github.repository }}
           git checkout ${{ github.head_ref }}
           large_files=$(git diff-tree --diff-filter=A "refs/remotes/origin/${{ github.base_ref }}.." -r --name-only | xargs --no-run-if-empty stat --format '%s %n' | awk '$1 > $CI_MAX_GIT_FILESIZE')
           if [[ ! -z "${large_files}" ]]; then
@@ -121,6 +121,34 @@ jobs:
 
       - name: Clean up
         run: |
-          sudo rm -rf ${{ secrets.REPO_NAME }}
-  
+          sudo rm -rf ${{ github.repository }}
+
+  lint_git_commit_message:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Lint Git Commit Message
+        run: |
+          has_error=0
+          for line in $(git log --abbrev=10 --format='%h %s' "refs/remotes/origin/${{ github.base_ref }}.."); do
+            hash="${line:0:10}"
+            message="${line:11}"
+            len="${#message}"
+            if [[ ${len} -gt ${CI_ENABLED_LINT_GIT_MAX_CHARS} ]]; then
+              echo "Commit ${hash} has a longer title than allowed: ${len} > ${CI_ENABLED_LINT_GIT_MAX_CHARS}"
+              printf "\t%s\n" "${message}"
+              has_error=1
+            fi
+          done
+          if [[ ${has_error} -eq 1 ]]; then
+            exit 1
+          fi
+
+      - name: Clean up
+        run: |
+          sudo rm -rf ${{ github.repository }}
   
