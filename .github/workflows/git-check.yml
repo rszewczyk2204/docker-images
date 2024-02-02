@@ -65,3 +65,34 @@ jobs:
       - name: Clean up
         run: |
           sudo rm -rf ${{ secrets.REPO_NAME }}
+
+  lint_git_suggestions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Lint Git Suggestions
+        run: |
+          git config --global --add safe.directory /__w/docker-images/docker-images
+          git checkout ${{ github.head_ref }}
+          exit_code=0
+          suggestion_commits=$(git log --format="%h %s" "refs/remotes/origin/${{ github.base_ref }}.." | grep -E 'Apply [0-9]+ suggestion\(s\)') || exit_code=$?
+          if [[ $exit_code -eq 0 ]]; then
+            echo "Adding reviews' suggestions as separate commits is forbidden."
+            echo "You should squash commit history."
+            echo "Commits that violate this rule:"
+            while IFS= read -r line; do
+              echo "- $line"
+            done <<< "$suggestion_commits"
+            exit 1
+          else
+            echo "No suggestions as separate commits found."
+          fi
+
+      - name: Clean up
+        run: |
+          sudo rm -rf ${{ secrets.REPO_NAME }}
+  
