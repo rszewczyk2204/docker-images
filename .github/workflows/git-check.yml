@@ -95,4 +95,32 @@ jobs:
       - name: Clean up
         run: |
           sudo rm -rf ${{ secrets.REPO_NAME }}
+
+  lint_git_file_size:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Lint Git File Size
+        run: |
+          git config --global --add safe.directory /__w/docker-images/docker-images
+          git checkout ${{ github.head_ref }}
+          large_files=$(git diff-tree --diff-filter=A "refs/remotes/origin/${{ github.base_ref }}.." -r --name-only | xargs --no-run-if-empty stat --format '%s %n' | awk '$1 > $CI_MAX_GIT_FILESIZE')
+          if [[ ! -z "${large_files}" ]]; then
+            echo "Found new files larger than allowed limit CI_MAX_GIT_FILESIZE: ${CI_MAX_GIT_FILESIZE}"
+            echo "$large_files" | while IFS= read -r file; do
+              echo "- $file"
+            done
+            exit 1
+          else
+            echo "Found no files violating this rule."
+          fi
+
+      - name: Clean up
+        run: |
+          sudo rm -rf ${{ secrets.REPO_NAME }}
+  
   
